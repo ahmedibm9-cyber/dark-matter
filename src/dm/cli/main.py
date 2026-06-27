@@ -226,11 +226,34 @@ def _stub(args, name):
 
 
 def cmd_start(args):
-    _stub(args, "start")
+    """Begin a work session."""
+    repo = _check_aether(args.path)
+    import json as _json
+    from datetime import datetime
+    sessions_dir = repo / ".darkmatter" / "sessions"
+    sessions_dir.mkdir(exist_ok=True)
+    session = {
+        "session_id": datetime.utcnow().strftime("SES-%Y%m%d-%H%M%S"),
+        "started": datetime.utcnow().isoformat(),
+        "repo": str(repo),
+    }
+    (sessions_dir / "current.json").write_text(_json.dumps(session, indent=2))
+    print(f"  Session {session['session_id']} started\n")
 
 
 def cmd_work(args):
-    _stub(args, "work")
+    """Load context for a task."""
+    repo = _check_aether(args.path)
+    import json as _json
+    task = args.task or "unnamed"
+    work_dir = repo / ".darkmatter" / "work"
+    work_dir.mkdir(exist_ok=True)
+    ctx = {
+        "task": task,
+        "set_at": __import__("datetime").datetime.utcnow().isoformat(),
+    }
+    (work_dir / "current.json").write_text(_json.dumps(ctx, indent=2))
+    print(f"  Context set to task: {task}\n")
 
 
 def cmd_scan(args):
@@ -340,7 +363,52 @@ def cmd_compile(args):
 
 
 def cmd_review(args):
-    _stub(args, "review")
+    """Get pre-commit/pre-PR analysis."""
+    repo = _check_aether(args.path)
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from dm.pipeline import Pipeline
+    from dm.audit import run_detectors_ponytail
+    from dm.store.json_store import JSONStore
+    import json as _json
+
+    store = JSONStore(str(repo / ".darkmatter"))
+
+    if args.pr:
+        print(f"  PR review mode — checking {repo.name}\n")
+    elif args.release:
+        print(f"  Release review for {args.release} — checking {repo.name}\n")
+    else:
+        print(f"  Pre-commit review — checking {repo.name}\n")
+
+    evidence = store.find_evidence()
+    if not evidence:
+        print("  No evidence found. Run 'dm scan' first.\n")
+        return
+
+    results = run_detectors_ponytail(evidence)
+    sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+    all_f = [(n, f) for n, fs in results.items() for f in fs]
+    highs = [(n, f) for n, f in all_f if f.severity in ("critical", "high")]
+
+    if not all_f:
+        print("  ✅ No findings. Good to go.\n")
+        return
+
+    if highs:
+        print(f"  ⛔ {len(highs)} blocking finding(s):\n")
+        for name, f in highs:
+            loc = f"{f.file}:{f.line}" if f.line else f.file
+            print(f"    [{f.severity.upper()}] {loc}")
+            print(f"           {f.description}")
+        print(f"\n  Fix before committing. Run 'dm audit --fix' or fix manually.\n")
+    else:
+        print(f"  ⚠️  {len(all_f)} low/medium findings (non-blocking)\n")
+        for name, f in all_f[:5]:
+            loc = f"{f.file}:{f.line}" if f.line else f.file
+            print(f"    {loc}  ({f.severity}) {f.description}")
+        if len(all_f) > 5:
+            print(f"    ... and {len(all_f) - 5} more")
+        print()
 
 
 def cmd_audit(args):
