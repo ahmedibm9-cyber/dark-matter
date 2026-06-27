@@ -85,6 +85,7 @@ def empty_catch(graph, evidence: list) -> list:
                     description="Empty exception handler",
                     confidence=0.8,
                     suggested_fix="Log the exception or handle it appropriately",
+                    fix_strategy={"action": "comment_out", "line": content[:m.start()].count("\n") + 1},
                 ))
     return findings
 
@@ -113,6 +114,7 @@ def console_log(graph, evidence: list) -> list:
                     description=f"Debug {m.group(0).split('(')[0]} statement",
                     confidence=0.6,
                     suggested_fix="Remove before production, or use proper logging framework",
+                    fix_strategy={"action": "comment_out", "line": content[:m.start()].count("\n") + 1},
                 ))
     return findings
 

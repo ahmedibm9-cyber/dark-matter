@@ -12,3 +12,6 @@ class Finding:
     confidence: float
     suggested_fix: Optional[str] = None
     evidence_ref: Optional[str] = None
+    fix_strategy: Optional[dict] = None
+    # { "action": "replace_line"|"comment_out"|"remove_line"|"replace_text",
+    #   "old": "...", "new": "...", "line": N }

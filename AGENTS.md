@@ -92,6 +92,55 @@ pytest src/ -v
 - **Adding a rule:** Add to `inference/rules.py::HARDCODED_RULES` or drop a
   YAML file in `.darkmatter/rules/`.
 
+## Agent Protocol (SHIP SAFELY)
+
+You are an AI agent building or modifying this project. Before you present any
+result to the human or attempt a commit/PR, follow this protocol:
+
+### 1. Run the audit
+
+```bash
+dm audit -p --severity high --json
+```
+
+This returns JSON. Parse it. If `total > 0`, there are bugs to fix.
+
+### 2. Fix all findings
+
+Each finding has a `suggested_fix` field. Apply it. Re-run the audit after
+each fix until `total == 0`.
+
+### 3. Never ship known bugs
+
+If the pre-commit hook or CI rejects your commit with findings, fix them.
+Do not skip, suppress, or override the gate. The human does not want to see
+a DM finding ever — that is your job to resolve.
+
+### 4. Read the .ai package
+
+After `dm compile`, read `output/repository.ai`. It contains the full graph
+(files, facts, verifications, findings) as structured JSON. Use it to
+understand what the project contains before making changes.
+
+### 5. Progressive severity
+
+- Always fix `critical` and `high` before shipping.
+- Prefer fixing `medium` when you have time.
+- `low` and `info` are acceptable to defer, but leave them with a
+  `# ponytail:` comment documenting why.
+
+### Summary
+
+```
+dm audit -p --severity high --json   # check for blocks
+# fix findings
+dm audit -p --severity high --json   # verify clean
+# commit / PR
+```
+
+If findings remain at high+, do not ship. Fix first. The human will never
+thank you for shipping known bugs.
+
 ## Vibe Coders
 
 If the human who cloned this repo is a vibe coder, the `VIBE-CODERS-GUIDE.md`

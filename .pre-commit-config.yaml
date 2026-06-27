@@ -14,3 +14,11 @@ repos:
       - id: check-json
       - id: check-added-large-files
       - id: check-toml
+  - repo: local
+    hooks:
+      - id: dm-audit
+        name: Dark Matter audit
+        entry: dm audit -p --severity high
+        language: system
+        pass_filenames: false
+        always_run: true

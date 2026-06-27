@@ -3,6 +3,20 @@ import hashlib
 from datetime import datetime
 
 def compile_ai_package(graph_state: dict, output_path: str):
+    findings_raw = graph_state.get("audit_findings", {})
+    findings_list = []
+    for detector_name, det_findings in findings_raw.items():
+        for f in det_findings:
+            findings_list.append({
+                "detector": detector_name,
+                "rule_id": f.rule_id,
+                "severity": f.severity,
+                "file": f.file,
+                "line": f.line,
+                "description": f.description,
+                "confidence": f.confidence,
+                "suggested_fix": f.suggested_fix,
+            })
     pkg = {
         "aether_version": "1.0.0",
         "generated_at": datetime.utcnow().isoformat(),
@@ -12,12 +26,14 @@ def compile_ai_package(graph_state: dict, output_path: str):
             "edges_count": graph_state.get("edge_count", 0),
             "facts_count": len(graph_state.get("facts", [])),
             "verifications_count": len(graph_state.get("verifications", [])),
+            "findings_count": len(findings_list),
             "languages": list(set(f.get("properties", {}).get("extension", "") for f in graph_state.get("files", []))),
         },
         "nodes": [],
         "edges": [],
         "facts": graph_state.get("facts", []),
         "verifications": graph_state.get("verifications", []),
+        "findings": findings_list,
     }
 
     repo = graph_state.get("repo_node")

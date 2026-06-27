@@ -15,6 +15,8 @@ Commands:
     doctor    Diagnose and fix issues
     search    Find anything in project knowledge
     explain   Understand why Dark Matter thinks something
+    report    Generate deployability report for engineer handoff
+    watch     Watch repo for changes, auto-audit
 
 Run 'dm <command> --help' for more information.
 """
@@ -73,6 +75,10 @@ def main():
     audit_p.add_argument("--severity", choices=["critical", "high", "medium", "low", "info"],
                          help="Minimum severity to show (default: all)")
     audit_p.add_argument("--detector", help="Only run specific detector (regex match on name)")
+    audit_p.add_argument("--json", action="store_true",
+                         help="Output findings as JSON (machine-readable for AI agents)")
+    audit_p.add_argument("--fix", action="store_true",
+                         help="Auto-fix findings when possible")
 
     doctor_p = subparsers.add_parser("doctor", help="Diagnose and fix issues")
     doctor_p.add_argument("--fix", action="store_true", help="Auto-fix when possible")
@@ -82,10 +88,23 @@ def main():
     search_p.add_argument("query", help="Search query")
     search_p.add_argument("--path", default=".", help="Repository path")
     search_p.add_argument("--limit", type=int, default=10, help="Max results")
+    search_p.add_argument("--json", action="store_true",
+                          help="Output as JSON (machine-readable for AI agents)")
 
     explain_p = subparsers.add_parser("explain", help="Understand why Dark Matter thinks something")
     explain_p.add_argument("claim", help="Statement to explain")
     explain_p.add_argument("--path", default=".", help="Repository path")
+    explain_p.add_argument("--json", action="store_true",
+                           help="Output as JSON (machine-readable for AI agents)")
+
+    report_p = subparsers.add_parser("report", help="Generate deployability report for engineer handoff")
+    report_p.add_argument("--path", default=".", help="Repository path")
+    report_p.add_argument("--output", default="deployability-report.md", help="Output file path")
+
+    watch_p = subparsers.add_parser("watch", help="Watch repo for changes, auto-audit")
+    watch_p.add_argument("--path", default=".", help="Repository path")
+    watch_p.add_argument("--interval", type=int, default=3, help="Poll interval in seconds")
+    watch_p.add_argument("--fix", action="store_true", help="Auto-fix findings when possible")
 
     args = parser.parse_args()
 
@@ -112,7 +131,9 @@ def main():
                           ("audit", "Run bug detectors"),
                           ("doctor", "Diagnose and fix issues"),
                           ("search", "Find anything in project knowledge"),
-                          ("explain", "Understand why DM thinks something")]:
+                          ("explain", "Understand why DM thinks something"),
+                          ("report", "Generate deployability report"),
+                          ("watch", "Watch repo for changes, auto-audit")]:
             print(f"  {cmd:<12} {desc}")
         print()
         print("Run 'dm <command> --help' for more details.")
@@ -131,6 +152,8 @@ def main():
         "doctor": cmd_doctor,
         "search": cmd_search,
         "explain": cmd_explain,
+        "report": cmd_report,
+        "watch": cmd_watch,
     }
 
     handler = commands.get(args.command)
@@ -342,6 +365,17 @@ def cmd_audit(args):
         results = run_detectors(graph, evidence, progress_cb=cb_progress)
         print()
 
+    # auto-fix before filtering so --fix applies to everything
+    if args.fix:
+        from dm.audit.fixer import apply_all
+        all_detected = [(n, f) for n, fs in results.items() for f in fs]
+        fixed, failed = apply_all([f for _, f in all_detected], str(repo))
+        if fixed or failed:
+            print(f"  Auto-fixed: {fixed}, failed: {failed}\n")
+        else:
+            print("  No auto-fixable findings.\n")
+        return
+
     SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
     min_sev = args.severity
     detector_filter = args.detector
@@ -351,15 +385,39 @@ def cmd_audit(args):
                     if (not detector_filter or detector_filter.lower() in n.lower())
                     and (not min_sev or SEVERITY_ORDER.get(f.severity, 99) <= SEVERITY_ORDER.get(min_sev, 99))]
 
+    by_severity = {}
+    for _, f in all_findings:
+        by_severity[f.severity] = by_severity.get(f.severity, 0) + 1
+
+    if args.json:
+        import json as _json
+        out = {
+            "findings": [
+                {
+                    "rule_id": f.rule_id,
+                    "severity": f.severity,
+                    "file": f.file,
+                    "line": f.line,
+                    "description": f.description,
+                    "confidence": f.confidence,
+                    "suggested_fix": f.suggested_fix,
+                }
+                for _, f in all_findings
+            ],
+            "summary": dict(sorted(by_severity.items())),
+            "total": len(all_findings),
+        }
+        print(_json.dumps(out, indent=2))
+        if all_findings:
+            sys.exit(1)
+        return
+
     if not all_findings:
         print("  No findings. Clean bill of health.\n")
         return
 
     all_findings.sort(key=lambda x: SEVERITY_ORDER.get(x[1].severity, 99))
 
-    by_severity = {}
-    for _, f in all_findings:
-        by_severity[f.severity] = by_severity.get(f.severity, 0) + 1
     sev_counts = [f"{c} {s}" for s in ("critical", "high", "medium", "low", "info") if (c := by_severity.get(s))]
 
     # ponytail: one-liner output, no boxes
@@ -369,6 +427,7 @@ def cmd_audit(args):
             loc = f"{f.file}" + (f":{f.line}" if f.line else "")
             print(f"  {loc}  ({f.severity}) {f.description}")
         print(f"\n  {len(all_findings)} findings\n")
+        sys.exit(1)
         return
 
     print(f"  Found: {', '.join(sev_counts)}\n")
@@ -381,18 +440,184 @@ def cmd_audit(args):
             print(f"          => {f.suggested_fix}")
         print()
     print(f"  {len(all_findings)} total findings across {len(results)} detectors\n")
+    sys.exit(1)
 
 
 def cmd_doctor(args):
-    _stub(args, "doctor")
+    """Diagnose and fix issues."""
+    repo = Path(args.path).resolve()
+    dm_dir = repo / ".darkmatter"
+
+    if not dm_dir.exists():
+        print(f"  Dark Matter not initialized in {repo}")
+        print(f"  Run: dm init {repo}")
+        return
+
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from dm.store.json_store import JSONStore
+    import json as _json
+
+    store = JSONStore(str(dm_dir))
+    issues = []
+
+    # check required dirs
+    for name in ["events", "nodes", "edges", "evidence", "verifications", "rules"]:
+        d = dm_dir / name
+        if not d.exists():
+            issues.append({"type": "missing_dir", "path": str(d), "fix": f"mkdir -p {d}"})
+
+    # check for orphan edges
+    all_nodes = set()
+    for kind_dir in store.nodes_dir.iterdir():
+        if kind_dir.is_dir():
+            for f in kind_dir.glob("*.json"):
+                all_nodes.add(f.stem)
+    for edge_file in store.edges_dir.rglob("*.json"):
+        edge = _json.loads(edge_file.read_text())
+        if edge["source_id"] not in all_nodes:
+            issues.append({"type": "orphan_edge", "file": str(edge_file), "detail": f"source {edge['source_id']} not found", "fix": f"rm {edge_file}"})
+        if edge["target_id"] not in all_nodes:
+            issues.append({"type": "orphan_edge", "file": str(edge_file), "detail": f"target {edge['target_id']} not found", "fix": f"rm {edge_file}"})
+
+    # check evidence integrity
+    for ev_file in store.evidence_dir.glob("*.json"):
+        try:
+            ev = _json.loads(ev_file.read_text())
+            if not ev.get("payload"):
+                issues.append({"type": "corrupt_evidence", "file": str(ev_file), "detail": "missing payload", "fix": f"rm {ev_file}"})
+        except _json.JSONDecodeError:
+            issues.append({"type": "corrupt_evidence", "file": str(ev_file), "detail": "invalid JSON", "fix": f"rm {ev_file}"})
+
+    if args.fix:
+        fixed = 0
+        for issue in issues:
+            if issue["type"] == "missing_dir":
+                Path(issue["path"]).mkdir(parents=True, exist_ok=True)
+                fixed += 1
+            elif issue["type"] == "orphan_edge":
+                Path(issue["file"]).unlink(missing_ok=True)
+                fixed += 1
+            elif issue["type"] == "corrupt_evidence":
+                Path(issue["file"]).unlink(missing_ok=True)
+                fixed += 1
+        print(f"  Fixed {fixed} issue(s)\n")
+        return
+
+    if not issues:
+        print("  Store is healthy. No issues found.\n")
+        return
+
+    print(f"  Found {len(issues)} issue(s):\n")
+    for issue in issues:
+        print(f"  [{issue['type']}] {issue.get('detail', issue['path'])}")
+        if issue.get("fix"):
+            print(f"           fix: {issue['fix']}")
+    print(f"\n  Run 'dm doctor --fix' to auto-repair\n")
 
 
 def cmd_search(args):
-    _stub(args, "search")
+    """Find anything in project knowledge."""
+    repo = _check_aether(args.path)
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from dm.store.json_store import JSONStore
+    import json as _json
+
+    store = JSONStore(str(repo / ".darkmatter"))
+    evidence = store.find_evidence()
+    query = args.query.lower()
+    limit = args.limit
+    results = []
+
+    for ev in evidence:
+        payload = ev.get("payload", {})
+        preview = payload.get("content_preview", "").lower()
+        rpath = payload.get("relative_path", "")
+        if query in rpath.lower() or query in preview:
+            results.append({
+                "path": rpath,
+                "file_path": payload.get("path", ""),
+                "evidence_id": ev.get("id", ""),
+                "confidence_weight": ev.get("confidence_weight", 0.5),
+            })
+        if len(results) >= limit:
+            break
+
+    if args.json:
+        print(_json.dumps({"results": results, "total": len(results), "query": args.query}, indent=2))
+        return
+
+    if not results:
+        print(f"  No results for '{args.query}'")
+        return
+    print(f"  Found {len(results)} result(s) for '{args.query}':\n")
+    for r in results:
+        print(f"  {r['path']}  (evidence: {r['evidence_id']})")
+    print()
 
 
 def cmd_explain(args):
-    _stub(args, "explain")
+    """Understand why Dark Matter thinks something."""
+    repo = _check_aether(args.path)
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from dm.store.json_store import JSONStore
+    import json as _json
+
+    store = JSONStore(str(repo / ".darkmatter"))
+    verifications = list(store.verifications_dir.glob("*.json"))
+    claim = args.claim.lower()
+    matches = []
+
+    for vp in verifications:
+        v = _json.loads(vp.read_text())
+        if claim in v.get("claim", "").lower():
+            matches.append(v)
+
+    if args.json:
+        print(_json.dumps({"claim": args.claim, "matches": matches, "total": len(matches)}, indent=2))
+        return
+
+    if not matches:
+        print(f"  No explanations found for '{args.claim}'")
+        print("  Run 'dm scan' first to generate facts and verifications.")
+        return
+
+    for v in matches:
+        print(f"  {v['claim']}")
+        print(f"    Result: {v.get('result', 'unknown')}")
+        print(f"    Confidence: {v.get('confidence', '?')}")
+        print(f"    Reason: {v.get('reason', 'N/A')}")
+        if v.get("evidence_used"):
+            print(f"    Evidence ({len(v['evidence_used'])} sources):")
+            for eid in v["evidence_used"][:5]:
+                ev = store.get_evidence(eid)
+                if ev:
+                    rp = ev.get("payload", {}).get("relative_path", eid)
+                    print(f"      - {rp}")
+        print()
+
+
+def cmd_report(args):
+    """Generate deployability report for engineer handoff."""
+    repo = _check_aether(args.path)
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from dm.pipeline import Pipeline
+    from dm.compiler.report import generate
+
+    def show_stage(stage):
+        print(f"  {stage}...")
+
+    pipeline = Pipeline(str(repo))
+    result = pipeline.run(stage_cb=show_stage)
+
+    out_path = repo / args.output
+    generate(result, str(out_path))
+    print(f"\n  Report written to {out_path}\n")
+
+
+def cmd_watch(args):
+    """Watch repo for changes, auto-audit."""
+    from dm.cli.watch import watch
+    watch(args.path, interval=args.interval, fix=args.fix)
 
 
 if __name__ == "__main__":

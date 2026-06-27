@@ -45,6 +45,52 @@ That scans the project, builds a knowledge graph, and reports high-severity bugs
 | `dm compile` | Generate markdown report + .ai package |
 | `dm verify` | Check facts against evidence |
 | `dm search <q>` | Find files in knowledge graph |
+| `dm report` | Deployability report for engineer handoff |
+| `dm watch` | Watch repo for changes, auto-audit |
+| `dm audit --fix` | Auto-fix console.log, empty catch, etc. |
+| `dm audit --json` | Machine-readable output for AI agents |
+
+## Demo
+
+Scanning Dark Matter with itself:
+
+```bash
+$ dm audit -p
+  1 high, 2 info
+
+  src/dm/audit/detectors/regex.py:15  (high) Dynamic code execution: compile()
+  src/dm/audit/detectors/__init__.py:7  (info) TODO without ticket reference
+
+  3 findings
+```
+
+Auto-fix and watch:
+
+```bash
+$ dm audit -p --fix
+  Auto-fixed: 1, failed: 0
+
+$ dm watch
+[dm] Watching dark-matter... (Ctrl+C to stop)
+[14:23:45] 3 findings, 1 fixed, 0 failed
+[14:23:48] 0 findings
+```
+
+Deployability report (for engineers):
+
+```bash
+$ dm report
+  Report written to deployability-report.md
+```
+
+← One page. Verdict: ✅ DEPLOYABLE or ⛔ BLOCKED.
+
+Audit any repo in one line:
+
+```bash
+git clone https://github.com/psf/black /tmp/black
+dm init /tmp/black && dm audit /tmp/black --severity high
+```
 
 ## Project Structure
 
@@ -93,5 +139,6 @@ Then from any project folder: `dm init .`
 
 ## Status
 
-v0.1 — Core loop complete. 12 bug detectors. Ponytail mode. Ready to use.
-Next: AI model layer, semantic detectors, auto-fix.
+v0.2 — 12 detectors, auto-fix, pre-commit hook, CI gate, JSON output,
+deployability report, watch mode, AI agent protocol. Everything automatic.
+Next: semantic detectors, AI model layer, more advanced fix strategies.
