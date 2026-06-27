@@ -68,7 +68,7 @@ def sql_injection(graph, evidence: list) -> list:
 def empty_catch(graph, evidence: list) -> list:
     findings = []
     patterns = [
-        re.compile(r'except\s+\w*(?:\s+as\s+\w+)?\s*:\s*\n\s*(?:pass|#|$|\n)', re.MULTILINE),
+        re.compile(r'except\s*\w*(?:\s+as\s+\w+)?\s*:\s*\n\s*(?:pass|#|$|\n)', re.MULTILINE),
         re.compile(r'catch\s*\([^)]*\)\s*\{\s*(?:\/\/.*)?\s*\}', re.MULTILINE),
         re.compile(r'catch\s*\{[^}]*\}'),
     ]
@@ -121,15 +121,13 @@ def console_log(graph, evidence: list) -> list:
 
 def eval_usage(graph, evidence: list) -> list:
     findings = []
-    pattern = re.compile(r'\b(?:eval|exec|compile)\s*\(')
+    # ponytail: negative lookbehind excludes re.compile, ast.literal_eval, etc.
+    pattern = re.compile(r'(?<!\.)\b(?:eval|exec|compile)\s*\(')
     for ev in evidence:
         fp = _path(ev)
         content = _content(ev)
         for m in pattern.finditer(content):
-            # skip safe uses in __main__ blocks or test files
             line = content[:m.start()].count("\n") + 1
-            context_start = max(0, m.start() - 60)
-            context = content[context_start:m.end() + 30]
             findings.append(Finding(
                 rule_id="DM-REGEX-005",
                 severity="high",
@@ -144,7 +142,8 @@ def eval_usage(graph, evidence: list) -> list:
 
 def todo_without_ticket(graph, evidence: list) -> list:
     findings = []
-    pattern = re.compile(r'\b(TODO|FIXME|HACK)\b\s*(?::?\s*)([^\n]*)', re.IGNORECASE)
+    # ponytail: require # or // prefix so string literals like "TODO Density" are not matched
+    pattern = re.compile(r'(?:#|//)\s*\b(TODO|FIXME|HACK)\b\s*(?::?\s*)([^\n]*)', re.IGNORECASE)
     ticket_pattern = re.compile(r'(?:#\d+|JIRA-\d+|GH-\d+|DM-\d+|TASK-\d+|PROJ-\d+)', re.IGNORECASE)
     for ev in evidence:
         fp = _path(ev)
