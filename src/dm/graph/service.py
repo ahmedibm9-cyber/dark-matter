@@ -1,15 +1,11 @@
-from datetime import datetime
-from pathlib import Path
+from typing import Optional, Any, Callable
 from .schema import Node, Edge
 
 
 class GraphService:
-    """Canonical gateway for all graph mutations and queries."""
-
-    def __init__(self, store):
+    def __init__(self, store: Any) -> None:
         self._store = store
 
-    # --- Evidence ---
     def add_evidence(self, evidence: dict) -> dict:
         result = self._store.store_evidence(evidence)
         self._store.append_event({
@@ -20,10 +16,10 @@ class GraphService:
         })
         return result
 
-    def get_evidence(self, eid: str) -> dict:
+    def get_evidence(self, eid: str) -> Optional[dict]:
         return self._store.get_evidence(eid)
 
-    def find_evidence(self, kind: str = None) -> list:
+    def find_evidence(self, kind: Optional[str] = None) -> list:
         return self._store.find_evidence(kind)
 
     def known_path_hashes(self) -> dict:
@@ -32,9 +28,8 @@ class GraphService:
     def events(self, after_seq: int = 0) -> list:
         return self._store.get_events(after_seq)
 
-    # --- Nodes ---
-    def add_node(self, kind: str, name: str, properties: dict = None,
-                 evidence_refs: list = None) -> dict:
+    def add_node(self, kind: str, name: str, properties: Optional[dict] = None,
+                 evidence_refs: Optional[list] = None) -> dict:
         node = Node(
             id=self._store.next_id(kind),
             kind=kind,
@@ -54,7 +49,8 @@ class GraphService:
         return result
 
     def add_node_with_id(self, node_id: str, kind: str, name: str,
-                         properties: dict = None, evidence_refs: list = None) -> dict:
+                         properties: Optional[dict] = None,
+                         evidence_refs: Optional[list] = None) -> dict:
         node = Node(
             id=node_id,
             kind=kind,
@@ -65,15 +61,14 @@ class GraphService:
         result = self._store.create_node(node)
         return {"node": node.__dict__, "created": result.get("success", False), "id": node.id}
 
-    def get_node(self, nid: str) -> dict:
+    def get_node(self, nid: str) -> Optional[dict]:
         return self._store.get_node(nid)
 
     def get_nodes_by_kind(self, kind: str) -> list:
         return self._store.get_nodes_by_kind(kind)
 
-    # --- Edges ---
     def add_edge(self, source_id: str, target_id: str, kind: str,
-                 evidence_refs: list = None) -> dict:
+                 evidence_refs: Optional[list] = None) -> dict:
         edge = Edge(
             source_id=source_id,
             target_id=target_id,
@@ -83,14 +78,13 @@ class GraphService:
         result = self._store.create_edge(edge)
         return {"edge": edge.__dict__, "created": result.get("success", False)}
 
-    def get_edges(self, kind: str = None) -> list:
+    def get_edges(self, kind: Optional[str] = None) -> list:
         return self._store.get_edges(kind)
 
     def get_neighbors(self, nid: str) -> list:
         return self._store.get_neighbors(nid)
 
-    # --- Convenience ---
-    def query(self, **filters) -> list:
+    def query(self, **filters: Any) -> list:
         # ponytail: linear scan over all JSON files, no index. Fine for <10K files.
         results = []
         for kind_dir in self._store.nodes_dir.iterdir():

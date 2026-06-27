@@ -5,7 +5,7 @@ from ..models import Finding
 CODE_EXTS = {".py", ".js", ".ts", ".jsx", ".tsx", ".rs", ".go", ".java", ".kt", ".cs", ".c", ".cpp", ".h", ".hpp", ".rb", ".php", ".swift"}
 
 
-def _parse_imports(content: str, ext: str) -> set:
+def _parse_imports(content: str, ext: str) -> set[str]:
     imports = set()
     if ext == ".py":
         for m in re.finditer(r'(?:^|\n)\s*(?:import |from )(\S+)', content):
@@ -33,10 +33,7 @@ def _parse_imports(content: str, ext: str) -> set:
     return {i for i in imports if i not in ("", "self", "__future__")}
 
 
-CODE_EXTS = {".py", ".js", ".ts", ".jsx", ".tsx", ".rs", ".go", ".java", ".kt", ".cs", ".c", ".cpp", ".h", ".hpp", ".rb", ".php", ".swift"}
-
-
-def orphan_files(graph, evidence) -> list:
+def orphan_files(graph, evidence: list) -> list:
     findings = []
     files = graph.get_nodes_by_kind("FILE")
     # deduplicate: keep one FILE node per relative path
@@ -98,7 +95,7 @@ def orphan_files(graph, evidence) -> list:
     return findings
 
 
-def bloated_files(graph, evidence) -> list:
+def bloated_files(graph, evidence: list) -> list:
     findings = []
     files = graph.get_nodes_by_kind("FILE")
     seen = {}
@@ -132,7 +129,7 @@ def bloated_files(graph, evidence) -> list:
     return findings
 
 
-def duplicate_files(graph, evidence) -> list:
+def duplicate_files(graph, evidence: list) -> list:
     findings = []
     ev_map = {}
     for ev in evidence:
@@ -155,7 +152,7 @@ def duplicate_files(graph, evidence) -> list:
     return findings
 
 
-def todo_density(graph, evidence) -> list:
+def todo_density(graph, evidence: list) -> list:
     findings = []
     for ev in evidence:
         preview = ev.get("payload", {}).get("content_preview", "")
@@ -177,7 +174,7 @@ def todo_density(graph, evidence) -> list:
     return findings
 
 
-def missing_tests(graph, evidence) -> list:
+def missing_tests(graph, evidence: list) -> list:
     findings = []
     files = graph.get_nodes_by_kind("FILE")
     seen = {}

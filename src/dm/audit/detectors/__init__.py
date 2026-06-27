@@ -15,16 +15,8 @@ DETECTORS = [
     ("Regex: Insecure Compare", regex.insecure_compare),
 ]
 
-# ponytail: regex-only detectors skip graph queries, no graph service needed
-PONYTAIL_DETECTORS = [
-    ("Regex: Hardcoded Secrets", regex.hardcoded_secrets),
-    ("Regex: SQL Injection", regex.sql_injection),
-    ("Regex: Empty Catch", regex.empty_catch),
-    ("Regex: Console Log", regex.console_log),
-    ("Regex: Eval Usage", regex.eval_usage),
-    ("Regex: TODO Without Ticket", regex.todo_without_ticket),
-    ("Regex: Insecure Compare", regex.insecure_compare),
-]
+# ponytail: regex-only detectors skip graph queries, derived from DETECTORS
+PONYTAIL_DETECTORS = [(n, fn) for n, fn in DETECTORS if n.startswith("Regex:")]
 
 
 def run_detectors(graph, evidence, progress_cb=None) -> dict:

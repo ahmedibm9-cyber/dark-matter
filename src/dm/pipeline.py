@@ -1,8 +1,7 @@
-import os
-import json
 import hashlib
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, Callable
 
 from .graph.service import GraphService
 from .store.json_store import JSONStore
@@ -13,17 +12,16 @@ from .compiler import markdown, ai_package
 from .audit import run_detectors, run_detectors_ponytail
 
 DEFAULT_STORE_PATH = ".darkmatter"
-DEFAULT_INPUT_PATH = "input"
 
 class Pipeline:
-    def __init__(self, repo_path: str, store_path: str = None):
+    def __init__(self, repo_path: str, store_path: Optional[str] = None):
         self.repo_path = Path(repo_path)
         self.store = JSONStore(store_path or str(self.repo_path / DEFAULT_STORE_PATH))
         self.graph = GraphService(self.store)
         self.graph_version = "1.0.0"
 
     def run(self, incremental: bool = False, ponytail: bool = False,
-            progress_cb=None, stage_cb=None) -> dict:
+            progress_cb: Optional[Callable] = None, stage_cb: Optional[Callable] = None) -> dict:
         # 1. Collect (incremental: skip files with known content hashes)
         if stage_cb:
             stage_cb("collecting")

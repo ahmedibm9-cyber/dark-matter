@@ -1,9 +1,9 @@
-import os
 import hashlib
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, Callable, Generator
 
-CONFIDENCE_WEIGHTS = {
+CONFIDENCE_WEIGHTS: dict[str, float] = {
     ".md": 0.60,
     ".json": 0.80,
     ".py": 0.85,
@@ -15,36 +15,40 @@ CONFIDENCE_WEIGHTS = {
 }
 
 # ponytail: hardcoded skip dirs, no .dmignore file support yet
-SKIP_DIRS = {".darkmatter", ".git", "__pycache__", "node_modules",
-             ".venv", "venv", "env", ".tox", ".eggs", "dist", "build",
-             ".idea", ".vscode", ".next", ".nuxt", ".svelte-kit",
-             "bin", "obj", "vendor", "packages", "target", "out",
-             "output", ".npm", ".cache", ".config", ".local",
-             ".openclaw", ".claude", ".opencode", ".mavis",
-             ".cursor", ".vscode-server", ".ssh", ".docker",
-             "AppData", "Application Data",
-             "Desktop", "Downloads", "Pictures", "Photos",
-             "Videos", "Music", "Movies", " recordings",
-             "Documents", "OneDrive", "iCloud Drive",
-             "Dropbox", "Google Drive", "Library"}
+SKIP_DIRS: set[str] = {
+    ".darkmatter", ".git", "__pycache__", "node_modules",
+    ".venv", "venv", "env", ".tox", ".eggs", "dist", "build",
+    ".idea", ".vscode", ".next", ".nuxt", ".svelte-kit",
+    "bin", "obj", "vendor", "packages", "target", "out",
+    "output", ".npm", ".cache", ".config", ".local",
+    ".openclaw", ".claude", ".opencode", ".mavis",
+    ".cursor", ".vscode-server", ".ssh", ".docker",
+    "AppData", "Application Data",
+    "Desktop", "Downloads", "Pictures", "Photos",
+    "Videos", "Music", "Movies", " recordings",
+    "Documents", "OneDrive", "iCloud Drive",
+    "Dropbox", "Google Drive", "Library",
+}
 
 # ponytail: safety limit, prevents OOM on massive home-dir scans
-MAX_FILES = 5000
+MAX_FILES: int = 5000
 
-BINARY_EXTS = {".exe", ".dll", ".so", ".dylib", ".bin", ".dat",
-               ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg",
-               ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-               ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar",
-               ".mp3", ".mp4", ".avi", ".mov", ".wav", ".flac", ".ogg",
-               ".woff", ".woff2", ".ttf", ".eot",
-               ".pyc", ".pyo", ".pyd", ".obj", ".o", ".a", ".lib",
-               ".class", ".jar", ".war", ".nar",
-               ".pak", ".unity", ".asset", ".resx"}
+BINARY_EXTS: set[str] = {
+    ".exe", ".dll", ".so", ".dylib", ".bin", ".dat",
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg",
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar",
+    ".mp3", ".mp4", ".avi", ".mov", ".wav", ".flac", ".ogg",
+    ".woff", ".woff2", ".ttf", ".eot",
+    ".pyc", ".pyo", ".pyd", ".obj", ".o", ".a", ".lib",
+    ".class", ".jar", ".war", ".nar",
+    ".pak", ".unity", ".asset", ".resx",
+}
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_FILE_SIZE: int = 10 * 1024 * 1024
 
-def _walk_files(root: Path):
-    """Walk files, skipping inaccessible dirs silently."""
+
+def _walk_files(root: Path) -> Generator[Path, None, None]:
     try:
         for entry in sorted(root.iterdir()):
             try:
@@ -59,8 +63,9 @@ def _walk_files(root: Path):
     except (PermissionError, OSError, FileNotFoundError):
         pass
 
-def collect(repo_path: str, progress_cb=None) -> list:
-    evidence = []
+
+def collect(repo_path: str, progress_cb: Optional[Callable] = None) -> list[dict]:
+    evidence: list[dict] = []
     root = Path(repo_path)
     total = 0
     skipped = 0
@@ -88,7 +93,7 @@ def collect(repo_path: str, progress_cb=None) -> list:
             "size_bytes": size,
             "line_count": len(content.splitlines()),
             # ponytail: 500-char preview is enough for regex/keyword detection
-    "content_preview": content[:500],
+            "content_preview": content[:500],
             "hash": hashlib.sha256(content.encode()).hexdigest(),
         }
         evidence.append({

@@ -2,15 +2,15 @@ import re
 from ..models import Finding
 
 
-def _content(ev):
+def _content(ev: dict) -> str:
     return ev.get("payload", {}).get("content_preview", "")
 
 
-def _path(ev):
+def _path(ev: dict) -> str:
     return ev.get("payload", {}).get("relative_path", "") or ev.get("relative_path", "")
 
 
-def hardcoded_secrets(graph, evidence) -> list:
+def hardcoded_secrets(graph, evidence: list) -> list:
     findings = []
     pattern = re.compile(
         r'(?:password|passwd|pwd|secret|api_key|apikey|api\.key|token|auth_token|'
@@ -38,7 +38,7 @@ def hardcoded_secrets(graph, evidence) -> list:
     return findings
 
 
-def sql_injection(graph, evidence) -> list:
+def sql_injection(graph, evidence: list) -> list:
     findings = []
     patterns = [
         re.compile(r'(?:execute|query|cursor\.execute|raw_query|db\.execute)\s*\(\s*[f"\'][^)]*\{'),
@@ -65,7 +65,7 @@ def sql_injection(graph, evidence) -> list:
     return findings
 
 
-def empty_catch(graph, evidence) -> list:
+def empty_catch(graph, evidence: list) -> list:
     findings = []
     patterns = [
         re.compile(r'except\s+\w*(?:\s+as\s+\w+)?\s*:\s*\n\s*(?:pass|#|$|\n)', re.MULTILINE),
@@ -89,7 +89,7 @@ def empty_catch(graph, evidence) -> list:
     return findings
 
 
-def console_log(graph, evidence) -> list:
+def console_log(graph, evidence: list) -> list:
     findings = []
     patterns = [
         re.compile(r'\bconsole\.(?:log|warn|error|debug|info)\s*\('),
@@ -117,7 +117,7 @@ def console_log(graph, evidence) -> list:
     return findings
 
 
-def eval_usage(graph, evidence) -> list:
+def eval_usage(graph, evidence: list) -> list:
     findings = []
     pattern = re.compile(r'\b(?:eval|exec|compile)\s*\(')
     for ev in evidence:
@@ -140,7 +140,7 @@ def eval_usage(graph, evidence) -> list:
     return findings
 
 
-def todo_without_ticket(graph, evidence) -> list:
+def todo_without_ticket(graph, evidence: list) -> list:
     findings = []
     pattern = re.compile(r'\b(TODO|FIXME|HACK)\b\s*(?::?\s*)([^\n]*)', re.IGNORECASE)
     ticket_pattern = re.compile(r'(?:#\d+|JIRA-\d+|GH-\d+|DM-\d+|TASK-\d+|PROJ-\d+)', re.IGNORECASE)
@@ -162,7 +162,7 @@ def todo_without_ticket(graph, evidence) -> list:
     return findings
 
 
-def insecure_compare(graph, evidence) -> list:
+def insecure_compare(graph, evidence: list) -> list:
     findings = []
     pattern = re.compile(r'(?:password|token|secret|hash|hmac|signature)\s*(?:!=|==)\s*[\w"\']+', re.IGNORECASE)
     for ev in evidence:

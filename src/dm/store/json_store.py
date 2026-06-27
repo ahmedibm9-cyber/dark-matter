@@ -1,11 +1,13 @@
 import json
-import os
 import hashlib
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, Any
+from ..graph.schema import Node, Edge
+
 
 class JSONStore:
-    def __init__(self, path: str):
+    def __init__(self, path: str) -> None:
         self.root = Path(path)
         self.events_dir = self.root / "events"
         self.nodes_dir = self.root / "nodes"
@@ -17,7 +19,7 @@ class JSONStore:
         self._ensure_dirs()
         self._event_seq = self._load_seq()
 
-    def _ensure_dirs(self):
+    def _ensure_dirs(self) -> None:
         for d in [self.events_dir, self.nodes_dir, self.edges_dir,
                   self.evidence_dir, self.verifications_dir, self.rules_dir]:
             d.mkdir(parents=True, exist_ok=True)
@@ -28,7 +30,7 @@ class JSONStore:
                 rules_text = res.read_text("dm.inference", "default_rules.yaml")
                 default_rules.write_text(rules_text, encoding="utf-8")
             except Exception:
-                pass  # Fallback: no default rules file written
+                pass
 
     def _load_seq(self) -> int:
         if self.meta_file.exists():
@@ -36,12 +38,11 @@ class JSONStore:
             return meta.get("event_sequence", 0)
         return 0
 
-    def _save_seq(self):
+    def _save_seq(self) -> None:
         self.meta_file.write_text(json.dumps({"event_sequence": self._event_seq}, indent=2))
 
-    def known_path_hashes(self) -> dict:
-        """Return dict of relative_path → content_hash for all stored evidence."""
-        path_hashes = {}
+    def known_path_hashes(self) -> dict[str, str]:
+        path_hashes: dict[str, str] = {}
         for f in self.evidence_dir.glob("*.json"):
             rec = json.loads(f.read_text())
             payload = rec.get("payload", {})
@@ -52,7 +53,6 @@ class JSONStore:
         return path_hashes
 
     def next_id(self, kind: str) -> str:
-        # ponytail: file-based counter, not atomic. Fine for single-user CLI.
         prefix = kind.upper()[:8]
         meta = json.loads(self.meta_file.read_text()) if self.meta_file.exists() else {}
         counters = meta.get("id_counters", {})
@@ -67,7 +67,6 @@ class JSONStore:
         d.mkdir(exist_ok=True)
         return d
 
-    # --- Evidence ---
     def store_evidence(self, evidence: dict) -> dict:
         payload = evidence.get("payload", {})
         raw = f"{evidence['kind']}{evidence['source']}{json.dumps(payload, sort_keys=True)}"
@@ -81,12 +80,12 @@ class JSONStore:
         (self.evidence_dir / f"{eid}_{h}.json").write_text(json.dumps(rec, indent=2, default=str))
         return {"id": eid, "hash": h, "deduplicated": False}
 
-    def get_evidence(self, eid: str) -> dict:
+    def get_evidence(self, eid: str) -> Optional[dict]:
         for f in self.evidence_dir.glob(f"{eid}_*.json"):
             return json.loads(f.read_text())
         return None
 
-    def find_evidence(self, kind: str = None) -> list:
+    def find_evidence(self, kind: Optional[str] = None) -> list[dict]:
         results = []
         for f in self.evidence_dir.glob("*.json"):
             rec = json.loads(f.read_text())
@@ -94,22 +93,20 @@ class JSONStore:
                 results.append(rec)
         return results
 
-    # --- Nodes ---
-    def create_node(self, node) -> dict:
+    def create_node(self, node: Node) -> dict:
         nd = node.__dict__.copy()
         nd["created"] = nd["created"].isoformat()
         nd["modified"] = nd["modified"].isoformat()
         nd["observed"] = nd["observed"].isoformat()
         nd["verified"] = nd["verified"].isoformat() if nd["verified"] else None
         nd["expired"] = nd["expired"].isoformat() if nd["expired"] else None
-        nd["checksum"] = node.checksum()
         path = self._kind_dir(node.kind) / f"{node.id}.json"
         if path.exists():
             return {"success": False, "error": "duplicate_id"}
         path.write_text(json.dumps(nd, indent=2, default=str))
         return {"success": True, "node": nd}
 
-    def get_node(self, nid: str) -> dict:
+    def get_node(self, nid: str) -> Optional[dict]:
         for kind_dir in self.nodes_dir.iterdir():
             if kind_dir.is_dir():
                 p = kind_dir / f"{nid}.json"
@@ -117,13 +114,11 @@ class JSONStore:
                     return json.loads(p.read_text())
         return None
 
-    def get_nodes_by_kind(self, kind: str) -> list:
+    def get_nodes_by_kind(self, kind: str) -> list[dict]:
         d = self._kind_dir(kind)
         return [json.loads(f.read_text()) for f in d.glob("*.json")]
 
-    # --- Edges ---
-    def create_edge(self, edge) -> dict:
-        ek = edge.key()
+    def create_edge(self, edge: Edge) -> dict:
         d = self.edges_dir / edge.kind.lower()
         d.mkdir(exist_ok=True)
         fname = f"{edge.source_id}__{edge.target_id}.json"
@@ -138,7 +133,7 @@ class JSONStore:
         path.write_text(json.dumps(rec, indent=2, default=str))
         return {"success": True, "edge": rec}
 
-    def get_edges(self, kind: str = None) -> list:
+    def get_edges(self, kind: Optional[str] = None) -> list[dict]:
         results = []
         search = [self.edges_dir / kind.lower()] if kind else self.edges_dir.iterdir()
         for d in search:
@@ -147,7 +142,7 @@ class JSONStore:
                     results.append(json.loads(f.read_text()))
         return results
 
-    def get_neighbors(self, nid: str) -> list:
+    def get_neighbors(self, nid: str) -> list[dict]:
         neighbors = []
         for edge in self.get_edges():
             if edge["source_id"] == nid:
@@ -160,7 +155,6 @@ class JSONStore:
                     neighbors.append({"node": node, "edge": edge, "direction": "inbound"})
         return neighbors
 
-    # --- Events ---
     def append_event(self, event: dict) -> dict:
         self._event_seq += 1
         event["sequence"] = self._event_seq
@@ -170,7 +164,7 @@ class JSONStore:
         self._save_seq()
         return {"sequence": self._event_seq}
 
-    def get_events(self, after_seq: int = 0) -> list:
+    def get_events(self, after_seq: int = 0) -> list[dict]:
         events = []
         for f in sorted(self.events_dir.glob("*.json")):
             ev = json.loads(f.read_text())
@@ -178,7 +172,6 @@ class JSONStore:
                 events.append(ev)
         return events
 
-    # --- Verifications ---
     def store_verification(self, ver: dict) -> str:
         vid = ver.get("id") or self.next_id("VERIFY")
         ver["id"] = vid

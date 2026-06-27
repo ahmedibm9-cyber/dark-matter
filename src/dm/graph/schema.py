@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
+
 @dataclass
 class Node:
     id: str
@@ -16,10 +17,6 @@ class Node:
     expired: Optional[datetime] = None
     tags: list = field(default_factory=list)
 
-    def checksum(self) -> str:
-        import hashlib
-        raw = f"{self.kind}{self.name}{sorted(self.properties.items())}{sorted(self.evidence_refs)}"
-        return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 @dataclass
 class Edge:
@@ -30,6 +27,3 @@ class Edge:
     evidence_refs: list = field(default_factory=list)
     created: datetime = field(default_factory=datetime.utcnow)
     modified: datetime = field(default_factory=datetime.utcnow)
-
-    def key(self) -> tuple:
-        return (self.source_id, self.target_id, self.kind)

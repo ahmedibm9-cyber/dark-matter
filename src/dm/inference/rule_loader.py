@@ -2,7 +2,7 @@ import yaml
 from pathlib import Path
 
 
-def load_rules(rules_dir: str = None) -> list:
+def load_rules(rules_dir: str = None) -> list[dict]:
     if not rules_dir:
         return []
     p = Path(rules_dir)

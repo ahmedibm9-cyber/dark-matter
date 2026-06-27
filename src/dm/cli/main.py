@@ -266,29 +266,26 @@ def cmd_verify(args):
         rejected = [v for v in ver_data if v.get("result") == "rejected"]
 
         if verified:
-            print(_render_box("Verified", [
-                f"{v['claim']} ({v.get('confidence', '?')})"
-                for v in verified[:5]
-            ]))
+            print("--- Verified " + "-" * 28)
+            for v in verified[:5]:
+                print(f"  {v['claim']} ({v.get('confidence', '?')})")
             if len(verified) > 5:
                 print(f"  ... and {len(verified) - 5} more")
             print()
 
         if inconclusive:
-            print(_render_box("Inconclusive", [
-                f"{v['claim']} ({v.get('confidence', '?')})"
-                for v in inconclusive[:3]
-            ]))
+            print("--- Inconclusive " + "-" * 25)
+            for v in inconclusive[:3]:
+                print(f"  {v['claim']} ({v.get('confidence', '?')})")
             if len(inconclusive) > 3:
                 print(f"  ... and {len(inconclusive) - 3} more")
             print()
 
-        print(_render_box("Summary", [
-            f"{len(verified)} verified",
-            f"{len(inconclusive)} inconclusive",
-            f"{len(rejected)} rejected",
-            f"{len(evidence_list)} evidence records",
-        ]))
+        print("--- Summary " + "-" * 29)
+        print(f"  {len(verified)} verified")
+        print(f"  {len(inconclusive)} inconclusive")
+        print(f"  {len(rejected)} rejected")
+        print(f"  {len(evidence_list)} evidence records")
     else:
         print("  No verifications recorded yet.")
         print("  Run: dm scan")
