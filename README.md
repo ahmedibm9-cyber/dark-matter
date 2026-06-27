@@ -45,6 +45,7 @@ That scans the project, builds a knowledge graph, and reports high-severity bugs
 | `dm compile` | Generate markdown report + .ai package |
 | `dm verify` | Check facts against evidence |
 | `dm search <q>` | Find files in knowledge graph |
+| `dm context` | Full project context for AI agents (the ultimate prompt) |
 | `dm report` | Deployability report for engineer handoff |
 | `dm watch` | Watch repo for changes, auto-audit |
 | `dm audit --fix` | Auto-fix console.log, empty catch, etc. |

@@ -15,6 +15,7 @@ Commands:
     doctor    Diagnose and fix issues
     search    Find anything in project knowledge
     explain   Understand why Dark Matter thinks something
+    context   Generate project context for AI agents (the ultimate prompt)
     report    Generate deployability report for engineer handoff
     watch     Watch repo for changes, auto-audit
 
@@ -101,6 +102,11 @@ def main():
     report_p.add_argument("--path", default=".", help="Repository path")
     report_p.add_argument("--output", default="deployability-report.md", help="Output file path")
 
+    context_p = subparsers.add_parser("context", help="Generate project context for AI agents")
+    context_p.add_argument("--path", default=".", help="Repository path")
+    context_p.add_argument("--json", action="store_true",
+                           help="Output as JSON (machine-readable)")
+
     watch_p = subparsers.add_parser("watch", help="Watch repo for changes, auto-audit")
     watch_p.add_argument("--path", default=".", help="Repository path")
     watch_p.add_argument("--interval", type=int, default=3, help="Poll interval in seconds")
@@ -133,6 +139,7 @@ def main():
                           ("search", "Find anything in project knowledge"),
                           ("explain", "Understand why DM thinks something"),
                           ("report", "Generate deployability report"),
+                          ("context", "Generate AI agent context"),
                           ("watch", "Watch repo for changes, auto-audit")]:
             print(f"  {cmd:<12} {desc}")
         print()
@@ -153,6 +160,7 @@ def main():
         "search": cmd_search,
         "explain": cmd_explain,
         "report": cmd_report,
+        "context": cmd_context,
         "watch": cmd_watch,
     }
 
@@ -680,6 +688,17 @@ def cmd_report(args):
     out_path = repo / args.output
     generate(result, str(out_path))
     print(f"\n  Report written to {out_path}\n")
+
+
+def cmd_context(args):
+    """Generate project context for AI agents."""
+    repo = _check_aether(args.path)
+    from dm.cli.context import build, format_prompt, format_json
+    ctx = build(str(repo))
+    if args.json:
+        print(format_json(ctx))
+    else:
+        print(format_prompt(ctx))
 
 
 def cmd_watch(args):

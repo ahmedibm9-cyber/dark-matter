@@ -154,7 +154,7 @@ class Pipeline:
             md_path = str(out_dir / "repository-intelligence.md")
             markdown.compile_markdown(graph_state, md_path)
             ai_path = str(out_dir / "repository.ai")
-            ai_package.compile_ai_package(graph_state, ai_path)
+            ai_package.compile_ai_package(graph_state, ai_path, str(self.repo_path))
             outputs = {"markdown": md_path, "ai_package": ai_path}
 
         return {

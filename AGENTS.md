@@ -1,149 +1,124 @@
 # For AI Agents
 
-You are reading the source of **Dark Matter** — a repository intelligence platform.
-Your goal is to understand, extend, or maintain this codebase. Here's everything you need.
+You are reading the source of **Dark Matter** — a repository intelligence
+platform designed specifically to make AI agents productive on any project
+in under 1 second.
 
-## Identity
-
-- **Name:** Dark Matter
-- **CLI:** `dm` (after `pip install -e .`)
-- **Purpose:** Convert any codebase into a verifiable, versioned knowledge graph.
-- **Philosophy:** Specification-driven, contract-first, ponytail (lazy senior dev).
-
-## Quickstart for Agents
+## Your Workflow (every time)
 
 ```bash
 pip install -e .
-dm init /path/to/some/project    # Scan and build graph
-dm audit /path/to/some/project   # Find bugs
+dm context --json          # Get full project context as JSON
+# ... work on the project ...
+dm audit -p --severity high --json   # Check for bugs before shipping
 ```
 
-The project is in `src/dm/`. Start with `cli/main.py` for command routing,
-`pipeline.py` for the stage sequence.
+## The `.ai` Package (your best friend)
 
-## Architecture
+After `dm compile`, read `output/repository.ai`. It contains everything you
+need to know about the project in one JSON file:
+
+- `project_context` — languages, frameworks, entry points, dependencies,
+  environment variables, architecture, run/test commands, file breakdown
+- `agent_prompt` — a pre-formatted prompt you can prepend to your context
+- `findings` — all detected bugs with severity, location, and suggested fix
+- `facts` — inferred metadata (frameworks, architecture)
+- `genome` — high-level stats (file count, node count, etc.)
+
+This is designed to fit in your context window efficiently.
+
+## Project Protocol (THE RULES)
+
+These rules are non-negotiable. The human never wants to see a DM finding.
+
+### Rule 1: Context first
+
+Before making ANY change, run `dm context --json`. Read `project_context`
+and `findings`. Understand what you're working with.
+
+### Rule 2: Audit before shipping
+
+```python
+import subprocess, json
+result = subprocess.run(
+    ["dm", "audit", "-p", "--severity", "high", "--json"],
+    capture_output=True, text=True
+)
+data = json.loads(result.stdout)
+if data["total"] > 0:
+    # Fix ALL findings before proceeding
+    for f in data["findings"]:
+        apply_fix(f)  # use f["suggested_fix"] or f["fix_strategy"]
+    # Re-audit until clean
+```
+
+### Rule 3: Never ship known bugs
+
+If the pre-commit hook or CI rejects your commit, it's because findings
+exist. Fix them. Do not override, skip, or suppress the gate.
+
+### Rule 4: Use fix_strategy when available
+
+Some findings include a `fix_strategy` dict:
+```json
+{"action": "comment_out", "line": 42}
+```
+Apply it. The `dm audit --fix` command does this automatically.
+
+### Rule 5: Progressive severity
+
+- **Critical + High**: must fix before shipping. Blocking.
+- **Medium**: strongly prefer to fix. If deferred, leave a ponytail comment.
+- **Low + Info**: acceptable to defer, but document why.
+
+## Quick Reference
+
+| Command | For agents | What |
+|---------|-----------|------|
+| `dm context --json` | ✅ | Full project context (languages, deps, entry points, env vars) |
+| `dm audit --json` | ✅ | All findings as machine-readable JSON |
+| `dm audit -p --json` | ✅ | Fast regex-only audit, JSON output |
+| `dm audit --fix` | ✅ | Auto-fix console.log, empty catch, etc. |
+| `dm search <q> --json` | ✅ | Find files by keyword |
+| `dm explain <c> --json` | ✅ | Trace a fact back to evidence |
+| `dm report` | ❌ | For humans (markdown) |
+| `dm doctor` | ❌ | For humans (store health) |
+| `dm watch` | ❌ | For humans (live polling) |
+
+## Architecture (for extending DM)
 
 ```
-collect → store evidence → build graph → infer facts → verify → audit → compile
-  1            2               3             4          5       6        7
+collect → store → graph → infer → verify → audit → compile
+  1        2        3       4        5        6       7
 ```
 
 | Stage | Module | What |
 |-------|--------|------|
-| Collect | `collectors/filesystem.py` | Walk repo, skip binary/hidden/large, hash content |
-| Store | `store/json_store.py` | JSON file store with dedup by content hash |
-| Graph | `graph/service.py` | Node/edge CRUD, deterministic IDs, event log |
-| Infer | `inference/rules.py` | Keyword pattern matching against evidence content |
+| Collect | `collectors/filesystem.py` | Walk repo, hash content, skip binary |
+| Store | `store/json_store.py` | JSON file store with dedup |
+| Graph | `graph/service.py` | Node/edge CRUD, event log |
+| Infer | `inference/rules.py` | Keyword matching against evidence |
 | Verify | `verification/verifier.py` | 3-factor confidence (weight × freshness × trust) |
-| Audit | `audit/detectors/*.py` | Structural + regex bug detectors |
-| Compile | `compiler/*.py` | Markdown report + `.ai` machine-readable package |
-
-## Key Contracts
-
-Everything flows through `GraphService` (`graph/service.py`). No component
-touches storage directly. The service is the canonical gateway.
-
-- **Evidence** = immutable records from collectors (file content previews, hashes)
-- **Nodes** = entities (REPOSITORY, FILE, etc.)
-- **Edges** = relationships (CONTAINS, etc.)
-- **Facts** = derived statements from rules
-- **Verifications** = confidence-scored fact checks
-- **Findings** = audit results (bugs, smells, issues)
-
-## Ponytail
-
-This project follows the **ponytail** philosophy: lazy senior developer who
-has been paged at 3am. Look for `# ponytail:` comments — they mark deliberate
-shortcuts with the ceiling and the upgrade path.
-
-Key shortcuts taken:
-- No database — JSON files on disk. Fine for <10K files.
-- No `.dmignore` — skip dirs hardcoded. Add when needed.
-- No NLP — keyword matching for inference. Works for 95% of framework detection.
-- No query index — linear scan over JSON. Fine for project-scale repos.
-- No AI model — pure heuristics + regex for bug detection. LLM layer planned.
+| Audit | `audit/detectors/*.py` | 12 bug detectors (5 structural + 7 regex) |
+| Compile | `compiler/*.py` | Markdown report + `.ai` package + deploy report |
 
 ## Adding a Detector
 
-Detectors are standalone functions with signature:
-
 ```python
-def my_detector(graph: GraphService, evidence: list) -> list[Finding]:
+def my_detector(graph, evidence: list) -> list[Finding]:
     ...
 ```
+Add to `audit/detectors/__init__.py` → `DETECTORS` list.
 
-Register in `audit/detectors/__init__.py` by adding to `DETECTORS` list.
-Each detector gets the full graph and evidence. Return findings, not side effects.
+## Ponytail Philosophy
 
-## Testing
+This project follows ponytail: lazy senior dev. Look for `# ponytail:`
+comments — they mark deliberate shortcuts with the ceiling and upgrade path.
 
-Tests use standard `unittest` / `pytest`. Run:
-
-```bash
-pytest src/ -v
-```
-
-## Common Patterns
-
-- **Adding a CLI command:** Add subparser in `cli/main.py::main()`, add handler
-  function, register in `commands` dict.
-- **Adding a collector:** Create module in `collectors/`, return `list[dict]`
-  of evidence records, add to pipeline.
-- **Adding a rule:** Add to `inference/rules.py::HARDCODED_RULES` or drop a
-  YAML file in `.darkmatter/rules/`.
-
-## Agent Protocol (SHIP SAFELY)
-
-You are an AI agent building or modifying this project. Before you present any
-result to the human or attempt a commit/PR, follow this protocol:
-
-### 1. Run the audit
-
-```bash
-dm audit -p --severity high --json
-```
-
-This returns JSON. Parse it. If `total > 0`, there are bugs to fix.
-
-### 2. Fix all findings
-
-Each finding has a `suggested_fix` field. Apply it. Re-run the audit after
-each fix until `total == 0`.
-
-### 3. Never ship known bugs
-
-If the pre-commit hook or CI rejects your commit with findings, fix them.
-Do not skip, suppress, or override the gate. The human does not want to see
-a DM finding ever — that is your job to resolve.
-
-### 4. Read the .ai package
-
-After `dm compile`, read `output/repository.ai`. It contains the full graph
-(files, facts, verifications, findings) as structured JSON. Use it to
-understand what the project contains before making changes.
-
-### 5. Progressive severity
-
-- Always fix `critical` and `high` before shipping.
-- Prefer fixing `medium` when you have time.
-- `low` and `info` are acceptable to defer, but leave them with a
-  `# ponytail:` comment documenting why.
-
-### Summary
-
-```
-dm audit -p --severity high --json   # check for blocks
-# fix findings
-dm audit -p --severity high --json   # verify clean
-# commit / PR
-```
-
-If findings remain at high+, do not ship. Fix first. The human will never
-thank you for shipping known bugs.
+Key shortcuts: JSON files (not DB), hardcoded skip dirs (no `.dmignore`),
+keyword matching (not NLP), linear scan (no index), no AI model for core loop.
 
 ## Vibe Coders
 
-If the human who cloned this repo is a vibe coder, the `VIBE-CODERS-GUIDE.md`
-at repo root explains everything from first principles — what a file system is,
-what a graph is, how APIs work, all the way up to how Dark Matter works.
-Refer them to it.
+If the human references `VIBE-CODERS-GUIDE.md`, they need the full beginner
+explanation. Point them to it.
