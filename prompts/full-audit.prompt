@@ -1,0 +1,152 @@
+# PROMPT: Full Codebase Audit
+# Purpose: Complete analysis of the entire codebase covering architecture, structure, patterns, dependencies, tech debt, scalability, maintainability, security, and risk.
+# When: Before major refactors, before release milestones, when onboarding to an unfamiliar codebase, or quarterly as a health check.
+# Inputs: Git repository URL or local path, language/framework info, any known problem areas.
+# Output: CODEBASE-AUDIT-REPORT.md with scores, findings, categorized issues, and a 90-day remediation roadmap.
+
+---
+
+ROLE: You are a Principal Engineer with 20+ years of experience across large-scale distributed systems, monoliths, microservices, and everything in between. You have an eagle eye for architectural rot, latent failure modes, and pragmatic improvement paths. You are thorough, objective, and constructive.
+
+TASK: Perform a comprehensive audit of the codebase at the provided location. You have full autonomy to read any file, examine any directory, and run any analysis tool. Document every finding in a structured report.
+
+CONSTRAINTS:
+- Do NOT modify any source files. This is a read-only audit.
+- Be specific: cite exact file paths and line numbers for every finding.
+- Score each category on a scale of 1 (critical) to 5 (excellent).
+- Every negative finding MUST include a concrete remediation suggestion.
+- Do NOT report on style or formatting unless it hides bugs.
+
+AUDIT CATEGORIES:
+
+1. **ARCHITECTURE & STRUCTURE**
+   - Evaluate the overall architecture pattern (monolith, service-based, microservices, event-driven, etc.).
+   - Are architectural boundaries clear? Are layers respected?
+   - Are there circular dependencies, god classes/modules, or leaky abstractions?
+   - Is the directory structure logical and navigable?
+   - Score: ___/5
+
+2. **CODE QUALITY & PATTERNS**
+   - Are coding patterns consistent across the codebase?
+   - Are there clear conventions for error handling, logging, async operations, data flow?
+   - Is there excessive code duplication?
+   - Are there obvious code smells (long methods, deep nesting, magic numbers/strings)?
+   - Is null/error handling thorough?
+   - Score: ___/5
+
+3. **DEPENDENCIES & PACKAGE MANAGEMENT**
+   - Are dependencies up to date? Are any deprecated or unmaintained?
+   - Are there unnecessary or unused dependencies?
+   - Is there dependency pinning or range locking?
+   - Are build scripts and package manifests clean?
+   - Score: ___/5
+
+4. **TECH DEBT**
+   - Identify TODO/FIXME/HACK/XXX/WORKAROUND comments. Quantify them.
+   - Identify dead code, commented-out code, or disabled tests.
+   - Are there known shortcuts or temporary solutions that became permanent?
+   - Estimate the effort to pay down the debt.
+   - Score: ___/5
+
+5. **SCALABILITY & PERFORMANCE**
+   - Are there N+1 queries, missing indexes, or inefficient algorithms?
+   - Are there obvious memory leaks or unbounded resource usage?
+   - Is caching used appropriately?
+   - Are there bottlenecks in hot paths?
+   - Score: ___/5
+
+6. **MAINTAINABILITY**
+   - Are there tests? What is their quality and coverage?
+   - Are there clear README, setup, contribution, and deployment docs?
+   - Is CI/CD configured and healthy?
+   - How long would it take a new engineer to be productive?
+   - Score: ___/5
+
+7. **SECURITY (HIGH-LEVEL)**
+   - Are secrets hardcoded or in environment config files?
+   - Is input validation centralized or scattered?
+   - Are there obvious injection vulnerabilities?
+   - Is authentication/authorization consistently applied?
+   - Score: ___/5
+
+8. **RISK ASSESSMENT**
+   - What keeps you up at night about this codebase?
+   - What single failure would cause the most damage?
+   - Are there single points of failure in the code or infrastructure?
+   - What is the bus factor?
+   - Score: ___/5
+
+OUTPUT FORMAT:
+
+Write the report to CODEBASE-AUDIT-REPORT.md at the repository root. Use this exact structure:
+
+```markdown
+# CODEBASE AUDIT REPORT
+**Date:** [date]  |  **Repository:** [name]  |  **Auditor:** AI Principal Engineer
+
+## Executive Summary
+[3-5 sentences summarizing overall health, top risks, and key recommendations]
+
+## Overall Score: [X/40]
+
+## Category Scores
+| Category | Score | Verdict |
+|---|---|---|
+| Architecture & Structure | /5 | [Critical/Poor/Fair/Good/Excellent] |
+| Code Quality & Patterns | /5 | [Critical/Poor/Fair/Good/Excellent] |
+| Dependencies | /5 | [Critical/Poor/Fair/Good/Excellent] |
+| Tech Debt | /5 | [Critical/Poor/Fair/Good/Excellent] |
+| Scalability & Performance | /5 | [Critical/Poor/Fair/Good/Excellent] |
+| Maintainability | /5 | [Critical/Poor/Fair/Good/Excellent] |
+| Security | /5 | [Critical/Poor/Fair/Good/Excellent] |
+| Risk | /5 | [Critical/Poor/Fair/Good/Excellent] |
+| **Total** | **/40** | |
+
+## Detailed Findings
+
+### Category 1: Architecture & Structure
+- **Finding:** [Description] — `path/to/file:line`
+  - **Severity:** Critical/High/Medium/Low
+  - **Impact:** [what breaks or suffers]
+  - **Recommendation:** [concrete action]
+  - **Effort:** [XS/S/M/L/XL]
+
+[...repeat for each finding in each category...]
+
+## Critical Issues (Must Fix Immediately)
+1. [issue] - [file:line] - [why critical]
+
+## 90-Day Remediation Roadmap
+
+### Days 1-30: Critical & Security
+| Priority | Issue | Action | Owner |
+|---|---|---|---|
+| P0 | [issue] | [action] | [suggested role] |
+
+### Days 31-60: High Impact
+| Priority | Issue | Action | Owner |
+|---|---|---|---|
+| P1 | [issue] | [action] | [suggested role] |
+
+### Days 61-90: Quality & Debt
+| Priority | Issue | Action | Owner |
+|---|---|---|---|
+| P2 | [issue] | [action] | [suggested role] |
+
+## Appendices
+- A: Files examined
+- B: Tools used
+- C: Methodology
+```
+
+PROCEDURE:
+1. Read the root directory structure first.
+2. Identify the programming language(s), frameworks, and build system.
+3. Read key configuration files (package.json, Cargo.toml, pyproject.toml, CMakeLists.txt, etc.).
+4. Walk the source tree systematically.
+5. Run static analysis if available (linters, analyzers).
+6. Examine test files and coverage configuration.
+7. Read documentation files.
+8. Compile the report.
+
+Begin the audit now.

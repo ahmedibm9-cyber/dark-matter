@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.so
+
+# DM store (recreated by `dm init` / `dm scan`)
+.darkmatter/
+
+# DM output (recreated by `dm compile`)
+output/
+FileMap.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+.DS_Store
+Thumbs.db
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+
+# OS junk
+Desktop.ini
+ehthumbs.db

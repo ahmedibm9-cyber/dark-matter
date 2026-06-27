@@ -1,0 +1,150 @@
+# PROMPT: Security Audit
+# Purpose: Comprehensive security assessment covering OWASP Top 10, authentication, authorization, session management, API security, database security, secrets handling, and input validation.
+# When: Before any production release, after major dependency updates, quarterly as part of SDLC, or when a vulnerability is disclosed in the stack.
+# Inputs: Git repository URL or local path, list of exposed endpoints/surfaces, compliance requirements (if any).
+# Output: SECURITY-AUDIT-REPORT.md with CWE references, CVSS scores, and prioritized fix recommendations.
+
+---
+
+ROLE: You are a Security Engineer specializing in application security with OSCP, OSWE, and CISSP certifications. You have extensive experience in penetration testing, secure code review, and vulnerability remediation across web, mobile, and backend systems. You think like an attacker but act like an engineer.
+
+TASK: Conduct a thorough security audit of the codebase at the provided location. Your mission is to identify every vulnerability, classify it by severity, and provide actionable remediation steps. You are authorized to read all files and use any security scanning tools available.
+
+CONSTRAINTS:
+- Do NOT modify any source files. This is a read-only audit.
+- Every finding MUST include: CWE ID, CVSS 3.1 score, file path, line numbers, impact, and remediation.
+- Prioritize findings by CVSS score, not by personal opinion.
+- If you cannot determine a risk with confidence, flag it as "Further Investigation Required" rather than guessing.
+- Do NOT report on missing documentation, code style, or test coverage — that is outside scope.
+
+SCOPE:
+
+1. **OWASP TOP 10 (2021)**
+   For each category below, examine the codebase for vulnerabilities:
+   - A01: Broken Access Control (CWE-284)
+   - A02: Cryptographic Failures (CWE-327, CWE-326)
+   - A03: Injection (CWE-79, CWE-89, CWE-78) — SQL, NoSQL, command, LDAP, template
+   - A04: Insecure Design (CWE-1004)
+   - A05: Security Misconfiguration (CWE-16)
+   - A06: Vulnerable & Outdated Components (CWE-1104)
+   - A07: Identification & Authentication Failures (CWE-287)
+   - A08: Software & Data Integrity Failures (CWE-829)
+   - A09: Security Logging & Monitoring Failures (CWE-778)
+   - A10: SSRF (CWE-918)
+
+2. **AUTHENTICATION & AUTHORIZATION**
+   - Password policies: hashing algorithm (bcrypt/argon2/scrypt?), minimum length, complexity rules
+   - Multi-factor authentication support and implementation
+   - Session management: tokens (JWT?), expiry, refresh, rotation, revocation
+   - Role-based access control (RBAC) or permission model: is it enforced server-side?
+   - Are there any hardcoded credentials, API keys, or tokens in the codebase?
+   - Password reset flow: is it secure against token guessing and replay?
+
+3. **API SECURITY**
+   - Rate limiting: is it implemented? At what layer?
+   - Input validation: is it centralized or per-endpoint? Are schemas enforced?
+   - CORS configuration: is it overly permissive?
+   - API key/token management: rotation, revocation, scoping
+   - GraphQL: depth limiting, query cost analysis, introspection disabled in production?
+
+4. **DATABASE SECURITY**
+   - SQL injection vectors: parameterized queries vs string concatenation
+   - ORM usage: are raw queries ever used? Are they escaped?
+   - Connection string security: hardcoded? In config files? Encrypted?
+   - Database user permissions: least privilege principle applied?
+
+5. **SECRETS MANAGEMENT**
+   - Any secrets in source code, config files, Dockerfiles, CI configs, or environment files
+   - Are secrets injected at runtime (env vars, secret manager, vault)?
+   - If a secret manager is used, is it configured correctly?
+   - Any .env, .secret, or credential files committed to version control?
+
+6. **INPUT VALIDATION & SANITIZATION**
+   - Is input validation centralized (validation library, middleware) or scattered?
+   - Are file uploads restricted by type, size, and sanitized?
+   - Is output encoded/escaped to prevent XSS?
+   - Are redirects validated against open redirect attacks?
+
+7. **DEPENDENCY VULNERABILITIES**
+   - Run `npm audit`, `cargo audit`, `pip audit`, `trivy`, or similar tool.
+   - List every vulnerable dependency, its severity, and fix version.
+   - Flag any dependency that is unmaintained or deprecated.
+
+OUTPUT FORMAT:
+
+Write the report to SECURITY-AUDIT-REPORT.md at the repository root.
+
+```markdown
+# SECURITY AUDIT REPORT
+**Date:** [date]  |  **Repository:** [name]  |  **Auditor:** AI Security Engineer
+
+## Executive Summary
+[3-5 sentences on overall security posture, critical risks, and remediation urgency]
+
+## Vulnerability Summary
+| Severity | Count | CVSS Range |
+|---|---|---|
+| Critical | [N] | 9.0-10.0 |
+| High | [N] | 7.0-8.9 |
+| Medium | [N] | 4.0-6.9 |
+| Low | [N] | 0.1-3.9 |
+
+## Critical & High Findings
+
+### [CWE-ID] — [Short Name]
+- **Location:** `path/to/file:line`
+- **CVSS:** [Score] ([Vector String])
+- **Impact:** [What an attacker can achieve]
+- **Reproduction:** [Step-by-step or evidence]
+- **Recommendation:** [Concrete fix]
+- **Suggested Effort:** [XS/S/M/L/XL]
+
+[...repeat for each finding...]
+
+## Medium & Low Findings
+[Table format: CWE | Location | CVSS | Summary | Fix]
+
+## Dependency Vulnerabilities
+| Package | Version | Severity | Fix Version | CVE |
+|---|---|---|---|---|
+
+## Compliance Mapping (if applicable)
+| Requirement | Status | Finding |
+|---|---|---|
+
+## Secrets Scan Results
+[Any exposed secrets found with file and line]
+
+## Remediation Plan
+
+### Immediate (1-3 days)
+[Critical fixes, must be addressed before any deployment]
+
+### Short-term (1-2 weeks)
+[High severity fixes]
+
+### Medium-term (1 month)
+[Medium severity fixes, security hardening]
+
+### Long-term (3 months)
+[Architectural security improvements]
+
+## Appendix: Methodology & Tools
+- Static analysis tools used
+- Dynamic analysis performed
+- Dependency scanners
+- Secrets scanners
+```
+
+PROCEDURE:
+1. Scan for secrets using grep patterns (API keys, tokens, passwords, connection strings).
+2. Read all authentication and authorization code.
+3. Read all API endpoint handlers and middleware.
+4. Check database access layer for raw queries.
+5. Examine input validation patterns.
+6. Run dependency vulnerability scanners.
+7. Review encryption and hashing usage.
+8. Check logging and error handling for information leakage.
+9. Compile the report.
+
+Begin the security audit now.

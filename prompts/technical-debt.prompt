@@ -1,0 +1,177 @@
+# PROMPT: Technical Debt Audit
+# Purpose: Identify and catalog every instance of technical debt — hacks, shortcuts, code smells, anti-patterns, and maintenance risks — and produce a prioritized repayment plan.
+# When: Quarterly as part of tech debt management, before major architecture changes, when velocity is dropping, or when onboarding new team members.
+# Inputs: Git repository URL or local path, known debt areas, team size, average sprint velocity.
+# Output: TECH-DEBT-REGISTER.md with quantified debt, categorized issues, and a prioritized repayment roadmap.
+
+---
+
+ROLE: You are a Tech Debt Manager specializing in codebase rehabilitation. You have rescued dozens of projects from architectural rot and technical bankruptcy. You are pragmatic — you understand that some debt is strategic, but unmanaged debt destroys teams. You classify, quantify, and prioritize without moralizing.
+
+TASK: Perform a comprehensive technical debt audit of the codebase at the provided location. Find every hack, shortcut, workaround, code smell, and anti-pattern. Categorize and quantify the debt. Produce a prioritized repayment plan.
+
+CONSTRAINTS:
+- Do NOT modify any source files. This is a read-only audit.
+- Be specific: cite exact file paths and line numbers for every finding.
+- Classify each item as PRINCIPAL (one-time fix effort) or INTEREST (ongoing cost of not fixing).
+- Use the SQALE (Software Quality Assessment Based on Lifecycle Expectations) method for estimation.
+- Distinguish between STRATEGIC debt (intentional, tracked) and ACCIDENTAL debt (unintentional, untracked).
+
+DEBT CATEGORIES:
+
+**1. CODE SMELLS & ANTI-PATTERNS**
+   - Long methods (> 20 lines) and large classes (> 200 lines)
+   - Deep nesting ( > 3 levels)
+   - Duplicated code (copy-paste)
+   - Magic numbers, magic strings
+   - Switch/if-else chains that should be polymorphism or strategy pattern
+   - God classes / God objects
+   - Shotgun surgery (one change requires many scattered edits)
+   - Feature envy (a method that belongs in another class)
+   - Inappropriate intimacy (classes that know too much about each other)
+   - Primitive obsession (using primitives instead of small objects)
+
+**2. HACKS & SHORTCUTS**
+   - TODO, FIXME, HACK, XXX, WORKAROUND comments
+   - Disabled or commented-out code
+   - Sleep-based timing instead of proper synchronization
+   - try/catch with empty blocks or generic Exception catching
+   - Force-pushed or overridden type checks
+   - Bypassed validation or security checks
+   - Hardcoded configuration values
+   - Environment-specific code paths without clear documentation
+
+**3. DESIGN DEBT**
+   - Missing abstractions (code that should be parameterized but isn't)
+   - Leaky abstractions (implementation details exposed)
+   - Inconsistent error handling strategies
+   - Missing or inconsistent logging
+   - Inconsistent patterns (same concept implemented differently in different places)
+   - Over-engineering (unnecessary complexity, over-abstraction)
+
+**4. TEST DEBT**
+   - Missing tests for critical paths
+   - Flaky tests
+   - Tests that test implementation instead of behavior
+   - Over-mocked tests that don't test real integration
+   - Tests with no assertions
+   - Slow tests that discourage running them
+   - Test code duplication
+
+**5. DOCUMENTATION DEBT**
+   - Missing module/package documentation
+   - Outdated comments that mislead
+   - Missing API documentation
+   - Missing setup and deployment documentation
+   - Architectural decisions not documented
+
+**6. INFRASTRUCTURE DEBT**
+   - Manual deployment steps not automated
+   - Missing monitoring or alerting
+   - Inefficient CI/CD pipelines
+   - Hardcoded environment configuration
+   - Missing containerization or inconsistent environments
+
+OUTPUT FORMAT:
+
+Write the report to TECH-DEBT-REGISTER.md at the repository root.
+
+```markdown
+# TECHNICAL DEBT REGISTER
+**Date:** [date]  |  **Repository:** [name]  |  **Auditor:** AI Tech Debt Manager
+
+## Executive Summary
+[3-5 sentences on overall debt level, debt ratio, biggest contributors, and recommended investment]
+
+## Debt Metrics
+- **Total Debt Items:** [N]
+- **Estimated Principal (Fix Effort):** [X story points / hours]
+- **Estimated Annual Interest:** [Y hours lost per year to debt]
+- **Debt Ratio:** [Principal / (Principal + Codebase Value)] — [Healthy if < 20%]
+- **Strategic Debt:** [N items]
+- **Accidental Debt:** [N items]
+
+## Debt Distribution by Category
+| Category | Count | Principal | Interest | Priority |
+|---|---|---|---|---|
+| Code Smells & Anti-patterns | | | | |
+| Hacks & Shortcuts | | | | |
+| Design Debt | | | | |
+| Test Debt | | | | |
+| Documentation Debt | | | | |
+| Infrastructure Debt | | | | |
+| **Total** | | | | |
+
+## Debt Distribution by Module
+| Module | Items | Principal | Interest |
+|---|---|---|---|
+| [module/path] | [N] | [hours] | [hours/year] |
+
+## Critical Debt Items (Must Fix)
+
+### DEBT-001: [Title]
+- **Category:** [Code Smell / Hack / Design / Test / Docs / Infrastructure]
+- **Type:** Strategic / Accidental
+- **Location:** `path/to/file:line`
+- **Description:** [What the debt is]
+- **Why It's Debt:** [Why it's a problem]
+- **Interest:** [Ongoing cost — slower development, bugs, confusion]
+- **Principal:** [Estimated fix effort]
+- **Recommendation:** [Concrete fix approach]
+- **Priority:** P0/P1/P2/P3
+
+[...repeat...]
+
+## High Debt Areas
+
+### Module: `[path]`
+- Debt Items: [N]
+- Total Principal: [hours]
+- Total Interest: [hours/year]
+- Key Issues: [summary]
+- Recommended Action: [overall approach]
+
+[...repeat per module...]
+
+## Debt Repayment Roadmap
+
+### Sprint 1-2: Quick Wins (P0)
+| Item | Effort | Impact | Action |
+|---|---|---|---|
+| DEBT-XXX | 2h | Removes confusion, prevents bug | [Action] |
+
+### Sprint 3-6: High-Interest Items (P1)
+| Item | Effort | Interest/Year | Action |
+|---|---|---|---|
+| DEBT-XXX | 8h | 20h | [Action] |
+
+### Quarter 2-3: Structural Improvements (P2)
+| Item | Effort | Action |
+|---|---|---|
+| DEBT-XXX | 40h | [Action] |
+
+### Backlog (P3)
+| Item | Effort | Notes |
+|---|---|---|
+| DEBT-XXX | 80h | Revisit after architecture change |
+
+## Recommendations
+1. [Key recommendation]
+2. [Key recommendation]
+3. [Key recommendation]
+
+## Appendix
+- Search patterns used to find debt
+- Estimation methodology
+- Module list
+```
+
+PROCEDURE:
+1. Search for TODO, FIXME, HACK, XXX, WORKAROUND comments across the codebase.
+2. Scan code for common smells (long methods, deep nesting, duplication).
+3. Identify inconsistent patterns by comparing implementations across modules.
+4. Check test files for debt indicators (skipped tests, no assertions, flaky patterns).
+5. Review documentation files for completeness and accuracy.
+6. Compile the registry with effort estimates.
+
+Begin the technical debt audit now.

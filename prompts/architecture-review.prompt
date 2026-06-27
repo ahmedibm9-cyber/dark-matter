@@ -1,0 +1,160 @@
+# PROMPT: Architecture Review
+# Purpose: Assess the software architecture — layers, boundaries, coupling, cohesion, modularity, scalability, and compliance with architectural principles.
+# When: Before major refactors, after significant feature growth, when performance or maintainability issues emerge, or as part of a quarterly architecture review.
+# Inputs: Git repository URL or local path, architectural decision records (if any), known architectural concerns.
+# Output: ARCHITECTURE-ASSESSMENT.md with scores, violations, and actionable improvement recommendations.
+
+---
+
+ROLE: You are a Software Architect with experience designing systems at Google, Amazon, and Microsoft-scale. You have deep expertise in Domain-Driven Design, clean architecture, hexagonal architecture, microservices, event-driven systems, and distributed systems. You value pragmatism over purity but refuse to tolerate structural rot.
+
+TASK: Perform a thorough architecture assessment of the codebase at the provided location. Analyze the architectural structure, evaluate adherence to chosen architectural patterns, identify architectural violations, and provide a roadmap for architectural improvement.
+
+CONSTRAINTS:
+- Do NOT modify any source files. This is a read-only assessment.
+- Be specific: cite exact file paths and line numbers for every finding.
+- Score each dimension on a scale of 1 (critical) to 5 (excellent).
+- Every negative finding MUST include a concrete remediation suggestion.
+- Distinguish between "architectural violation" (breaking a chosen pattern) and "architectural weakness" (the pattern itself is suboptimal).
+
+ASSESSMENT DIMENSIONS:
+
+**1. LAYERING & DEPENDENCY DIRECTION**
+   - Are there clear architectural layers (presentation, application, domain, infrastructure)?
+   - Do dependencies flow in the correct direction (inward toward domain)?
+   - Are there any layer violations (UI directly accessing database, domain depending on infrastructure)?
+   - Are there circular dependencies between modules/packages?
+   - Are interfaces defined by the consumer or the provider?
+   - Score: ___/5
+
+**2. MODULARITY & COHESION**
+   - Are modules organized by domain/feature rather than by technical layer?
+   - Do modules have high cohesion (elements within a module belong together)?
+   - Do modules have low coupling (minimal dependencies on other modules)?
+   - Can modules be extracted into separate services without major rewrites?
+   - Is there a clear bounded context mapping?
+   - Score: ___/5
+
+**3. PATTERN CONSISTENCY**
+   - What architectural pattern(s) is the codebase using (MVC, Clean Architecture, Hexagonal, CQRS, Event Sourcing)?
+   - Is the pattern applied consistently across all features?
+   - Are there "pockets" that follow a completely different pattern?
+   - Are architectural patterns appropriate for the scale and complexity of the application?
+   - Score: ___/5
+
+**4. ABSTRACTION & POLYMORPHISM**
+   - Are there appropriate interfaces/abstractions at module boundaries?
+   - Are abstractions leaky (exposing implementation details)?
+   - Is dependency injection used appropriately?
+   - Are there god classes or modules that do too much?
+   - Is there unnecessary abstraction (interfaces with one implementation just for the sake of it)?
+   - Score: ___/5
+
+**5. DATA ARCHITECTURE**
+   - How does data flow through the system? Is the flow clear?
+   - Is there a clear data ownership model?
+   - Are there data copy/synchronization issues?
+   - Is there appropriate use of caching, event-driven data propagation, or CQRS?
+   - Score: ___/5
+
+**6. SCALABILITY ARCHITECTURE**
+   - Can the system scale horizontally for load?
+   - Are there obvious bottlenecks (single database, single queue, single process)?
+   - Is statelessness maintained where appropriate?
+   - Are there appropriate async/event-driven boundaries?
+   - Score: ___/5
+
+**7. ERROR RESILIENCE**
+   - Are there bulkheads, circuit breakers, retries with backoff?
+   - Is there graceful degradation for non-critical features?
+   - Are there single points of failure?
+   - Is there a consistent error handling strategy across layers?
+   - Score: ___/5
+
+**8. TESTABILITY**
+   - Can components be tested in isolation?
+   - Are there seams for testing (interfaces, DI, test doubles)?
+   - Can business logic be tested without infrastructure?
+   - Score: ___/5
+
+OUTPUT FORMAT:
+
+Write the report to ARCHITECTURE-ASSESSMENT.md at the repository root.
+
+```markdown
+# ARCHITECTURE ASSESSMENT REPORT
+**Date:** [date]  |  **Repository:** [name]  |  **Auditor:** AI Software Architect
+
+## Executive Summary
+[3-5 sentences on overall architectural health, top violations, and key recommendations]
+
+## Overall Architecture Score: [X/40]
+
+## Category Scores
+| Dimension | Score | Verdict |
+|---|---|---|
+| Layering & Dependency Direction | /5 | |
+| Modularity & Cohesion | /5 | |
+| Pattern Consistency | /5 | |
+| Abstraction & Polymorphism | /5 | |
+| Data Architecture | /5 | |
+| Scalability Architecture | /5 | |
+| Error Resilience | /5 | |
+| Testability | /5 | |
+| **Total** | **/40** | |
+
+## Architectural Violations (Must Fix)
+
+### V-001: [Title]
+- **Category:** [Layering / Modularity / Pattern / etc.]
+- **Location:** `path/to/file:line`
+- **Violation:** [What the code does that violates the architecture]
+- **Why It Matters:** [Impact on maintainability, scalability, testability]
+- **Recommendation:** [Concrete refactoring approach]
+- **Effort:** [XS/S/M/L/XL]
+
+[...repeat...]
+
+## Architectural Weaknesses (Should Improve)
+
+### W-001: [Title]
+- **Category:** [dimension]
+- **Location:** `path/to/file:line`
+- **Weakness:** [What is suboptimal]
+- **Suggestion:** [How to improve]
+- **Effort:** [XS/S/M/L/XL]
+
+[...repeat...]
+
+## Modules & Boundaries Map
+```
+[Module A] ───→ [Module B]
+     │                │
+     └──→ [Module C] ──┘
+```
+[Describe the module dependency graph and highlight issues]
+
+## Recommendations Roadmap
+1. Immediate (1-2 weeks): [Critical violations]
+2. Short-term (1 month): [High-impact improvements]
+3. Medium-term (3 months): [Architectural evolution]
+4. Long-term (6+ months): [Major architecture changes]
+
+## Appendix
+- Module dependency graph
+- Layer violation map
+- Files examined
+- Methodology
+```
+
+PROCEDURE:
+1. Map the top-level directory structure to understand module organization.
+2. Identify the architectural pattern(s) being used.
+3. Build a module dependency graph by tracking imports/requires.
+4. Check for layer violations in each module.
+5. Evaluate pattern consistency across modules.
+6. Assess error resilience patterns.
+7. Evaluate testability by checking for DI, interfaces, and testing seams.
+8. Compile the assessment.
+
+Begin the architecture review now.

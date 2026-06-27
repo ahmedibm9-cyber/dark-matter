@@ -1,0 +1,333 @@
+# =============================================================================
+# GitHub Actions — PR Workflow
+# Triggers: pull_request (opened, synchronize, reopened, labeled, unlabeled)
+# =============================================================================
+name: PR Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
+    branches: [main, develop]
+
+concurrency:
+  group: pr-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  checks: write
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # PR Lint — validate PR title against conventional commits
+  # ---------------------------------------------------------------------------
+  pr-lint:
+    name: PR Title Convention
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: amannn/action-semantic-pull-request@v5
+        id: lint_pr_title
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            Subject must start with a lowercase letter.
+          validateSingleCommit: false
+
+      - name: Comment on invalid title
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "❌ **PR Title** does not follow [Conventional Commits](https://www.conventionalcommits.org/).\n\nExpected format: `<type>(<scope>): <subject>`\ne.g., `feat(auth): add OAuth login`"
+            });
+
+  # ---------------------------------------------------------------------------
+  # PR Size Labeler — label PRs by line count
+  # ---------------------------------------------------------------------------
+  pr-size-labeler:
+    name: Size Labeler
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/labeler@v5
+        continue-on-error: true
+
+      - uses: pavel-path/action-pr-size-labeler@v1
+        id: size_labeler
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          xs_max_size: 30
+          s_max_size: 100
+          m_max_size: 300
+          l_max_size: 1000
+          fail_if_xl: false
+          message_when_xl: >
+            This PR is very large. Consider splitting into smaller PRs
+            for faster review. Each PR should focus on one concern.
+
+  # ---------------------------------------------------------------------------
+  # Changed Files Analysis — identify affected modules
+  # ---------------------------------------------------------------------------
+  changed-files-analysis:
+    name: Changed Files Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      has_api_changes: ${{ steps.changed.outputs.api_any_changed }}
+      has_ui_changes: ${{ steps.changed.outputs.ui_any_changed }}
+      has_db_changes: ${{ steps.changed.outputs.db_any_changed }}
+      has_docs_changes: ${{ steps.changed.outputs.docs_any_changed }}
+      has_config_changes: ${{ steps.changed.outputs.config_any_changed }}
+      has_test_changes: ${{ steps.changed.outputs.test_any_changed }}
+      changed_files: ${{ steps.list.outputs.changed_files }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: changed
+        uses: tj-actions/changed-files@v45
+        with:
+          files_yaml: |
+            api:
+              - 'app/api/**'
+              - 'src/api/**'
+              - '**/route.ts'
+            ui:
+              - 'app/**/*.tsx'
+              - 'src/components/**'
+              - 'src/pages/**'
+            db:
+              - 'prisma/**'
+              - 'drizzle/**'
+              - 'migrations/**'
+              - 'src/db/**'
+            docs:
+              - 'docs/**'
+              - '**/*.md'
+              - '**/*.mdx'
+            config:
+              - '*.config.*'
+              - '*.json'
+              - '*.yml'
+              - '*.yaml'
+              - '.env*'
+            test:
+              - '**/*.test.*'
+              - '**/*.spec.*'
+              - '**/__tests__/**'
+              - '**/test/**'
+
+      - id: list
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | tr '\n' ' ')
+          echo "changed_files=$CHANGED" >> "$GITHUB_OUTPUT"
+
+      - name: Comment affected modules
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changed = JSON.parse(`${{ steps.changed.outputs.all_changed_files }}`);
+            const labels = [];
+            if (changed.some(f => f.match(/^app\/api|^src\/api/))) labels.push('🔌 API');
+            if (changed.some(f => f.match(/\.tsx$|\.ts$|^src\/components/))) labels.push('🖥 UI');
+            if (changed.some(f => f.match(/^prisma|^drizzle|migrations/))) labels.push('🗄 DB');
+            if (changed.some(f => f.match(/^docs/))) labels.push('📝 Docs');
+            if (changed.some(f => f.match(/test|spec/))) labels.push('🧪 Tests');
+            if (labels.length) {
+              github.rest.issues.addLabels({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: labels
+              });
+            }
+
+  # ---------------------------------------------------------------------------
+  # AI Context Generation — produce structured context for AI reviewers
+  # ---------------------------------------------------------------------------
+  ai-context-generation:
+    name: AI Context
+    runs-on: ubuntu-latest
+    needs: [changed-files-analysis]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate AI context summary
+        id: ai_context
+        run: |
+          PR_NUMBER=${{ github.event.number }}
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_DESC="${{ github.event.pull_request.body }}"
+          CHANGED="${{ needs.changed-files-analysis.outputs.changed_files }}"
+
+          DIFF_STATS=$(git diff --stat origin/${{ github.base_ref }}...HEAD | tail -1 || echo "0 files changed")
+
+          cat > pr-context.json << EOF
+          {
+            "pr": $PR_NUMBER,
+            "title": "$PR_TITLE",
+            "description": $(echo "$PR_DESC" | jq -Rs '.'),
+            "diffStats": "$DIFF_STATS",
+            "changedFiles": "$CHANGED",
+            "branch": "${{ github.head_ref }}",
+            "base": "${{ github.base_ref }}"
+          }
+          EOF
+
+          echo "context_file=pr-context.json" >> "$GITHUB_OUTPUT"
+
+      - name: Upload PR context artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-context
+          path: pr-context.json
+          retention-days: 7
+
+      - name: Post AI context to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const ctx = JSON.parse(fs.readFileSync('pr-context.json', 'utf8'));
+            const body = [
+              '## 🤖 AI Review Context',
+              '',
+              '| Field | Value |',
+              '|-------|-------|',
+              '| **PR** | #' + ctx.pr + ' |',
+              '| **Title** | ' + ctx.title + ' |',
+              '| **Branch** | ' + ctx.branch + ' |',
+              '| **Target** | ' + ctx.base + ' |',
+              '| **Diff** | ' + ctx.diffStats + ' |',
+              '',
+              '**Description:**',
+              '',
+              ctx.description || '_No description provided_',
+              '',
+              '**Changed Files:**',
+              '',
+              '```',
+              ctx.changedFiles || '_None_',
+              '```'
+            ].join('\n');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  # ---------------------------------------------------------------------------
+  # Auto-Assign Reviewers — based on changed files
+  # ---------------------------------------------------------------------------
+  auto-assign-reviewers:
+    name: Auto Assign Reviewers
+    runs-on: ubuntu-latest
+    needs: [changed-files-analysis]
+    timeout-minutes: 3
+    steps:
+      - uses: kentaro-m/auto-assign-action@v2
+        with:
+          configuration-path: .github/auto-assign.yml
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fallback assignment
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const reviewers = ['team-leads'];
+            github.rest.pulls.requestReviewers({
+              pull_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              team_reviewers: reviewers
+            });
+
+  # ---------------------------------------------------------------------------
+  # Blocked if Missing Docs — require docs for significant changes
+  # ---------------------------------------------------------------------------
+  blocked-if-missing-docs:
+    name: Docs Required Check
+    runs-on: ubuntu-latest
+    needs: [changed-files-analysis]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check docs requirement
+        id: check_docs
+        run: |
+          HAS_API=${{ needs.changed-files-analysis.outputs.has_api_changes }}
+          HAS_DB=${{ needs.changed-files-analysis.outputs.has_db_changes }}
+          HAS_UI=${{ needs.changed-files-analysis.outputs.has_ui_changes }}
+          HAS_DOCS=${{ needs.changed-files-analysis.outputs.has_docs_changes }}
+
+          API_BODY=$(echo "${{ github.event.pull_request.body }}" | grep -ci "api\|endpoint\|route" || true)
+          DB_BODY=$(echo "${{ github.event.pull_request.body }}" | grep -ci "migration\|schema\|table\|column" || true)
+          UI_BODY=$(echo "${{ github.event.pull_request.body }}" | grep -ci "component\|page\|ui\|layout" || true)
+
+          REQUIRES_DOCS=false
+
+          if [ "$HAS_API" == "true" ] && [ "$HAS_DOCS" == "false" ]; then
+            if [ "$API_BODY" -gt 0 ] || [ "$HAS_DB" == "true" ]; then
+              REQUIRES_DOCS=true
+            fi
+          fi
+
+          if [ "$HAS_DB" == "true" ] && [ "$HAS_DOCS" == "false" ]; then
+            REQUIRES_DOCS=true
+          fi
+
+          echo "requires_docs=$REQUIRES_DOCS" >> "$GITHUB_OUTPUT"
+
+          if [ "$REQUIRES_DOCS" == "true" ]; then
+            echo "FAIL_REASON=This PR changes API or database schema without documentation updates. Please update relevant docs." >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fail if docs missing
+        if: steps.check_docs.outputs.requires_docs == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.setFailed('${{ steps.check_docs.outputs.FAIL_REASON }}');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '📄 **Docs Required:** ' + '${{ steps.check_docs.outputs.FAIL_REASON }}'
+            });
